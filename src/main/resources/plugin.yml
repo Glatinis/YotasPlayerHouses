@@ -1,0 +1,9 @@
+name: YotasPlayerHouses
+description: $description
+version: '${version}'
+
+main: com.github.Glatinis.yotasPlayerHouses.YotasPlayerHouses
+api-version: '1.21.11'
+load: POSTWORLD
+
+authors: [ Glatinis ]
