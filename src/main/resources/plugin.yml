@@ -2,7 +2,7 @@ name: YotasPlayerHouses
 description: $description
 version: '${version}'
 
-main: com.github.Glatinis.yotasPlayerHouses.YotasPlayerHouses
+main: com.github.Glatinis.yotasPlayerHouses.core.YotasPlayerHouses
 api-version: '1.21.11'
 load: POSTWORLD
 
