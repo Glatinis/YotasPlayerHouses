@@ -10,6 +10,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
+import java.util.UUID;
 import java.util.function.Consumer;
 
 public class IslandManager {
@@ -28,13 +29,13 @@ public class IslandManager {
 
     // Grid placement
 
-    private Location originForIndex(int index) {
+    public Location getIslandOrigin(int islandIndex) {
         World houseWorld = Bukkit.getWorld(configManager.getHouseWorldName());
         int rowLength = configManager.getIslandRowLength();
         int spacing = configManager.getIslandSpacing();
 
-        int column = index % rowLength;
-        int row = index / rowLength;
+        int column = islandIndex % rowLength;
+        int row = islandIndex / rowLength;
 
         double x = column * spacing;
         double z = row * spacing;
@@ -43,10 +44,14 @@ public class IslandManager {
     }
 
     public Location getIslandOrigin(Player player) {
-        PlayerHouseData data = playerDataManager.get(player.getUniqueId());
+        return getIslandOrigin(player.getUniqueId());
+    }
+
+    public Location getIslandOrigin(UUID uuid) {
+        PlayerHouseData data = playerDataManager.get(uuid);
         if (!data.hasIsland())
             return null;
-        return originForIndex(data.getIslandIndex());
+        return getIslandOrigin(data.getIslandIndex());
     }
 
     // Creation
@@ -55,12 +60,12 @@ public class IslandManager {
         PlayerHouseData data = playerDataManager.get(player.getUniqueId());
 
         if (data.hasIsland()) {
-            onReady.accept(originForIndex(data.getIslandIndex()));
+            onReady.accept(getIslandOrigin(data.getIslandIndex()));
             return;
         }
 
         int index = playerDataManager.allocateIslandIndex();
-        Location origin = originForIndex(index);
+        Location origin = getIslandOrigin(index);
 
         schematicManager.pasteAsync(configManager.getBaseSchematic(), origin, () -> {
             data.setIslandIndex(index);
@@ -79,5 +84,22 @@ public class IslandManager {
             safeSpot.setPitch(0.0f);
             player.teleport(safeSpot);
         });
+    }
+
+    // Admin reset
+
+    public void resetIsland(UUID targetUuid, Runnable onSuccess, Consumer<Exception> onFailure) {
+        PlayerHouseData data = playerDataManager.get(targetUuid);
+        if (!data.hasIsland()) {
+            onFailure.accept(new IllegalStateException("player has no house"));
+            return;
+        }
+
+        Location origin = getIslandOrigin(data.getIslandIndex());
+        schematicManager.pasteAsync(configManager.getBaseSchematic(), origin, () -> {
+            data.getOwnedUpgrades().clear();
+            playerDataManager.save(data);
+            onSuccess.run();
+        }, onFailure);
     }
 }

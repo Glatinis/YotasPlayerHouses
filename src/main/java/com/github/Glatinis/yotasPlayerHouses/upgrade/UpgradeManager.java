@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 public class UpgradeManager {
@@ -214,5 +215,75 @@ public class UpgradeManager {
         for (ItemCost itemCost : items) {
             player.getInventory().removeItem(new ItemStack(itemCost.getMaterial(), itemCost.getAmount()));
         }
+    }
+
+    // Admin actions
+
+    public List<String> getOwnedUpgradeIds(UUID targetUuid) {
+        return new ArrayList<>(playerDataManager.get(targetUuid).getOwnedUpgrades());
+    }
+
+    public void grant(UUID targetUuid, String upgradeId, Consumer<AdminActionResult> callback) {
+        Upgrade upgrade = upgrades.get(upgradeId);
+        if (upgrade == null) {
+            callback.accept(AdminActionResult.UNKNOWN_UPGRADE);
+            return;
+        }
+
+        PlayerHouseData data = playerDataManager.get(targetUuid);
+        if (!data.hasIsland()) {
+            callback.accept(AdminActionResult.NO_ISLAND);
+            return;
+        }
+
+        if (data.hasUpgrade(upgradeId)) {
+            callback.accept(AdminActionResult.ALREADY_OWNED);
+            return;
+        }
+
+        if (!schematicManager.exists(upgrade.getSchematic())) {
+            callback.accept(AdminActionResult.SCHEMATIC_MISSING);
+            return;
+        }
+
+        Location pastePoint = islandManager.getIslandOrigin(targetUuid)
+                .clone().add(upgrade.getOffsetX(), upgrade.getOffsetY(), upgrade.getOffsetZ());
+
+        schematicManager.pasteAsync(upgrade.getSchematic(), pastePoint, () -> {
+            data.addUpgrade(upgradeId);
+            playerDataManager.save(data);
+            callback.accept(AdminActionResult.SUCCESS);
+        }, exception -> callback.accept(AdminActionResult.PASTE_FAILED));
+    }
+
+    // Clears ownership and, when possible, re-pastes the prerequisite schematic to visually roll the structure back.
+    public void revoke(UUID targetUuid, String upgradeId, Consumer<AdminActionResult> callback) {
+        Upgrade upgrade = upgrades.get(upgradeId);
+        if (upgrade == null) {
+            callback.accept(AdminActionResult.UNKNOWN_UPGRADE);
+            return;
+        }
+
+        PlayerHouseData data = playerDataManager.get(targetUuid);
+        if (!data.hasUpgrade(upgradeId)) {
+            callback.accept(AdminActionResult.NOT_OWNED);
+            return;
+        }
+
+        data.removeUpgrade(upgradeId);
+        playerDataManager.save(data);
+
+        Upgrade previous = upgrade.hasRequirement() ? upgrades.get(upgrade.getRequires()) : null;
+        if (previous == null) {
+            callback.accept(AdminActionResult.SUCCESS);
+            return;
+        }
+
+        Location pastePoint = islandManager.getIslandOrigin(targetUuid)
+                .clone().add(previous.getOffsetX(), previous.getOffsetY(), previous.getOffsetZ());
+
+        schematicManager.pasteAsync(previous.getSchematic(), pastePoint,
+                () -> callback.accept(AdminActionResult.SUCCESS),
+                exception -> callback.accept(AdminActionResult.PASTE_FAILED));
     }
 }
