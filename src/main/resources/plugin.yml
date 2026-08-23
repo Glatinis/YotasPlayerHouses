@@ -5,6 +5,23 @@ version: '${version}'
 main: com.github.Glatinis.yotasPlayerHouses.core.YotasPlayerHouses
 api-version: '1.21.11'
 load: POSTWORLD
-softdepend: [ Multiverse-Core ]
+softdepend: [ Multiverse-Core, FastAsyncWorldEdit, Vault ]
 
 authors: [ Glatinis ]
+
+commands:
+  playerhouse:
+    description: Manage your player house.
+    aliases: [ ph, house ]
+    usage: /<command> [home|upgrade|invite|accept|hub|admin]
+
+permissions:
+  yotasplayerhouses.use:
+    description: Allows use of the base /playerhouse command.
+    default: true
+  yotasplayerhouses.admin:
+    description: Allows use of /playerhouse admin.
+    default: op
+  yotasplayerhouses.admin.bypass:
+    description: Allows building/breaking inside the house world.
+    default: op
