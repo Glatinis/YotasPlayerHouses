@@ -1,1 +1,75 @@
+# The world houses are generated in.
 houseworld-name: houses
+
+# Grid layout for island plots inside the house world.
+island:
+  # Distance in blocks between each island's origin.
+  spacing: 500
+  # Number of islands per row before the grid wraps to a new row.
+  row-length: 50
+  # Y level of each island's origin point.
+  y-level: 100
+  # Schematic pasted at an island's origin the first time it is claimed. Free, no permission required.
+  base-schematic: base_house.schem
+  # Denies block break/place, explosions and fire spread anywhere in the house world.
+  protection: true
+
+# Location players are sent to when leaving their house.
+hub:
+  world: world
+  x: 0.5
+  y: 100.0
+  z: 0.5
+  yaw: 0.0
+  pitch: 0.0
+
+# How long, in seconds, a pending house invite stays valid before expiring.
+invite-expiry-seconds: 60
+
+# Every purchasable upgrade. Add new entries here and drop the matching schematic
+# in the plugin's schematics folder, no code changes required.
+#
+# id (the map key):  unique identifier, used with /playerhouse upgrade <id>
+# display-name:      shown in admin listings
+# category:          free-form label used to group upgrades in admin listings
+# schematic:         file name inside the schematics folder
+# offset:            x/y/z paste offset relative to the island origin
+# requires:          id of the upgrade that must be owned first, blank if none
+# permission:         permission node required to purchase, blank if none (used for VIP-gated upgrades)
+# cost.money:         Vault balance charged on purchase
+# cost.items:         list of material/amount pairs consumed on purchase
+upgrades:
+  house_tier_1:
+    display-name: "House - Tier 1"
+    category: house
+    schematic: house_tier_1.schem
+    offset: { x: 0, y: 0, z: 0 }
+    requires: ""
+    permission: ""
+    cost:
+      money: 250.0
+      items:
+        - material: OAK_PLANKS
+          amount: 64
+  house_tier_2:
+    display-name: "House - Tier 2"
+    category: house
+    schematic: house_tier_2.schem
+    offset: { x: 0, y: 0, z: 0 }
+    requires: house_tier_1
+    permission: ""
+    cost:
+      money: 750.0
+      items:
+        - material: STONE_BRICKS
+          amount: 128
+  house_tier_vip:
+    display-name: "House - VIP Tier"
+    category: house
+    schematic: house_tier_vip.schem
+    offset: { x: 0, y: 0, z: 0 }
+    requires: house_tier_2
+    permission: yotasplayerhouses.vip
+    cost:
+      money: 2000.0
+      items: []
