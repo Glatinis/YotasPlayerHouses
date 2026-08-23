@@ -1,0 +1,14 @@
+package com.github.Glatinis.yotasPlayerHouses.upgrade;
+
+public enum PurchaseResult {
+    SUCCESS,
+    UNKNOWN_UPGRADE,
+    NO_ISLAND,
+    ALREADY_OWNED,
+    MISSING_REQUIREMENT,
+    MISSING_PERMISSION,
+    INSUFFICIENT_FUNDS,
+    INSUFFICIENT_ITEMS,
+    SCHEMATIC_MISSING,
+    PASTE_FAILED
+}
