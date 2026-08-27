@@ -20,6 +20,8 @@ The plugin disables itself on startup if any of these are missing.
   pastes its own schematic at an offset from the island origin.
 - The whole house world is protected: block break/place, explosions and fire are all blocked so the
   only way a house changes is through the upgrade system.
+- Dying inside the house world respawns the player on their own island instead of wherever the server
+  would otherwise send them.
 
 ## Adding a new upgrade
 

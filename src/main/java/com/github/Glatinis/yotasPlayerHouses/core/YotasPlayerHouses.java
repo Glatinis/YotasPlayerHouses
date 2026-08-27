@@ -11,6 +11,7 @@ import com.github.Glatinis.yotasPlayerHouses.data.PlayerDataManager;
 import com.github.Glatinis.yotasPlayerHouses.economy.EconomyManager;
 import com.github.Glatinis.yotasPlayerHouses.invite.InviteManager;
 import com.github.Glatinis.yotasPlayerHouses.listener.HouseProtectionListener;
+import com.github.Glatinis.yotasPlayerHouses.listener.HouseRespawnListener;
 import com.github.Glatinis.yotasPlayerHouses.schematic.SchematicManager;
 import com.github.Glatinis.yotasPlayerHouses.upgrade.UpgradeManager;
 import com.github.Glatinis.yotasPlayerHouses.world.HouseWorldManager;
@@ -88,5 +89,6 @@ public final class YotasPlayerHouses extends JavaPlugin {
 
     private void registerListeners() {
         Bukkit.getPluginManager().registerEvents(new HouseProtectionListener(configManager), this);
+        Bukkit.getPluginManager().registerEvents(new HouseRespawnListener(configManager, islandManager), this);
     }
 }
