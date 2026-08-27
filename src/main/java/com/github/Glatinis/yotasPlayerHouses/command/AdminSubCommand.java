@@ -92,7 +92,7 @@ public class AdminSubCommand implements SubCommand {
     }
 
     private void handleReset(CommandSender sender, OfflinePlayer target) {
-        islandManager.resetIsland(target.getUniqueId(),
+        islandManager.resetIsland(target.getUniqueId(), upgradeManager,
                 () -> sender.sendMessage("§a" + target.getName() + "'s house progress has been reset."),
                 exception -> sender.sendMessage("§cFailed to reset house: " + exception.getMessage()));
     }

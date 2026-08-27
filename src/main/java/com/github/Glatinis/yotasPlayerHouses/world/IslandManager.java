@@ -5,11 +5,15 @@ import com.github.Glatinis.yotasPlayerHouses.core.YotasPlayerHouses;
 import com.github.Glatinis.yotasPlayerHouses.data.PlayerDataManager;
 import com.github.Glatinis.yotasPlayerHouses.data.PlayerHouseData;
 import com.github.Glatinis.yotasPlayerHouses.schematic.SchematicManager;
+import com.github.Glatinis.yotasPlayerHouses.upgrade.Upgrade;
+import com.github.Glatinis.yotasPlayerHouses.upgrade.UpgradeManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -88,7 +92,9 @@ public class IslandManager {
 
     // Admin reset
 
-    public void resetIsland(UUID targetUuid, Runnable onSuccess, Consumer<Exception> onFailure) {
+    // Clears every owned upgrade's footprint (they may sit at their own offset, e.g. a farm elsewhere
+    // on the island) before re-pasting the base schematic, so nothing lingers after a reset.
+    public void resetIsland(UUID targetUuid, UpgradeManager upgradeManager, Runnable onSuccess, Consumer<Exception> onFailure) {
         PlayerHouseData data = playerDataManager.get(targetUuid);
         if (!data.hasIsland()) {
             onFailure.accept(new IllegalStateException("player has no house"));
@@ -96,10 +102,33 @@ public class IslandManager {
         }
 
         Location origin = getIslandOrigin(data.getIslandIndex());
-        schematicManager.pasteAsync(configManager.getBaseSchematic(), origin, () -> {
-            data.getOwnedUpgrades().clear();
-            playerDataManager.save(data);
+        List<String> ownedIds = new ArrayList<>(data.getOwnedUpgrades());
+
+        clearOwnedUpgrades(origin, ownedIds, 0, upgradeManager, () ->
+                schematicManager.pasteAsync(configManager.getBaseSchematic(), origin, () -> {
+                    data.getOwnedUpgrades().clear();
+                    playerDataManager.save(data);
+                    onSuccess.run();
+                }, onFailure), onFailure);
+    }
+
+    private void clearOwnedUpgrades(Location origin, List<String> ownedIds, int index, UpgradeManager upgradeManager,
+                                     Runnable onSuccess, Consumer<Exception> onFailure) {
+        if (index >= ownedIds.size()) {
             onSuccess.run();
-        }, onFailure);
+            return;
+        }
+
+        Upgrade upgrade = upgradeManager.getUpgrade(ownedIds.get(index));
+        if (upgrade == null || !schematicManager.exists(upgrade.getSchematic())) {
+            // Upgrade no longer exists in config or its schematic is gone; nothing to clear, move on.
+            clearOwnedUpgrades(origin, ownedIds, index + 1, upgradeManager, onSuccess, onFailure);
+            return;
+        }
+
+        Location clearPoint = origin.clone().add(upgrade.getOffsetX(), upgrade.getOffsetY(), upgrade.getOffsetZ());
+        schematicManager.clearAsync(upgrade.getSchematic(), clearPoint,
+                () -> clearOwnedUpgrades(origin, ownedIds, index + 1, upgradeManager, onSuccess, onFailure),
+                onFailure);
     }
 }

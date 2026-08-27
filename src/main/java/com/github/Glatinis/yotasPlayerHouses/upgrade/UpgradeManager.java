@@ -15,9 +15,11 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -256,7 +258,8 @@ public class UpgradeManager {
         }, exception -> callback.accept(AdminActionResult.PASTE_FAILED));
     }
 
-    // Clears ownership and, when possible, re-pastes the prerequisite schematic to visually roll the structure back.
+    // Clears ownership of the upgrade and everything currently owned that's built on top of it, then
+    // reveals whatever's left underneath.
     public void revoke(UUID targetUuid, String upgradeId, Consumer<AdminActionResult> callback) {
         Upgrade upgrade = upgrades.get(upgradeId);
         if (upgrade == null) {
@@ -270,20 +273,97 @@ public class UpgradeManager {
             return;
         }
 
-        data.removeUpgrade(upgradeId);
+        // Anything currently owned that's built on top of this upgrade (directly or transitively) has to
+        // be stripped too. Otherwise its structure keeps standing on a footprint we're about to clear out
+        // from under it (e.g. clearing tier_1's floor while tier_2/VIP, which share its footprint, are
+        // still sitting on top of it) — which is how you end up with a hole and a player falling through.
+        List<Upgrade> toStrip = new ArrayList<>();
+        collectOwnedDependents(data, upgradeId, toStrip, new HashSet<>());
+        toStrip.add(upgrade);
+
+        for (Upgrade stripped : toStrip)
+            data.removeUpgrade(stripped.getId());
         playerDataManager.save(data);
 
-        Upgrade previous = upgrade.hasRequirement() ? upgrades.get(upgrade.getRequires()) : null;
-        if (previous == null) {
+        Location islandOrigin = islandManager.getIslandOrigin(targetUuid);
+
+        clearAll(islandOrigin, toStrip, 0, () -> pasteFallback(islandOrigin, data, upgrade, callback),
+                exception -> callback.accept(AdminActionResult.PASTE_FAILED));
+    }
+
+    // Finds whichever tier the player still owns below "upgrade" (may be none) and pastes it, or falls
+    // back to the base house if this upgrade shares its footprint, or leaves it cleared if neither apply
+    // (e.g. a standalone structure like a farm that the base house never touched).
+    private void pasteFallback(Location islandOrigin, PlayerHouseData data, Upgrade upgrade, Consumer<AdminActionResult> callback) {
+        Upgrade fallback = findOwnedFallback(data, upgrade);
+
+        String pasteSchematic;
+        Location pastePoint;
+        if (fallback != null) {
+            pasteSchematic = fallback.getSchematic();
+            pastePoint = islandOrigin.clone().add(fallback.getOffsetX(), fallback.getOffsetY(), fallback.getOffsetZ());
+        } else if (sharesBaseFootprint(upgrade)) {
+            pasteSchematic = configManager.getBaseSchematic();
+            pastePoint = islandOrigin;
+        } else {
             callback.accept(AdminActionResult.SUCCESS);
             return;
         }
 
-        Location pastePoint = islandManager.getIslandOrigin(targetUuid)
-                .clone().add(previous.getOffsetX(), previous.getOffsetY(), previous.getOffsetZ());
-
-        schematicManager.pasteAsync(previous.getSchematic(), pastePoint,
+        schematicManager.pasteAsync(pasteSchematic, pastePoint,
                 () -> callback.accept(AdminActionResult.SUCCESS),
                 exception -> callback.accept(AdminActionResult.PASTE_FAILED));
+    }
+
+    // Walks the requires chain below "revoked", skipping tiers the player doesn't actually own (e.g. this
+    // upgrade may have been admin-granted directly, skipping the chain) or that no longer exist in config.
+    private Upgrade findOwnedFallback(PlayerHouseData data, Upgrade revoked) {
+        Set<String> visited = new HashSet<>();
+        String requiresId = revoked.getRequires();
+        while (requiresId != null && !requiresId.isEmpty() && visited.add(requiresId)) {
+            Upgrade candidate = upgrades.get(requiresId);
+            if (candidate == null)
+                return null; // chain is broken here, nothing further we can safely reveal
+
+            if (data.hasUpgrade(candidate.getId()))
+                return candidate;
+
+            requiresId = candidate.getRequires();
+        }
+        return null;
+    }
+
+    // Recursively gathers every currently-owned upgrade built on top of upgradeId, deepest first.
+    private void collectOwnedDependents(PlayerHouseData data, String upgradeId, List<Upgrade> results, Set<String> visited) {
+        if (!visited.add(upgradeId))
+            return;
+
+        for (Upgrade candidate : upgrades.values()) {
+            if (upgradeId.equals(candidate.getRequires()) && data.hasUpgrade(candidate.getId())) {
+                collectOwnedDependents(data, candidate.getId(), results, visited);
+                results.add(candidate);
+            }
+        }
+    }
+
+    private void clearAll(Location islandOrigin, List<Upgrade> toClear, int index,
+                           Runnable onSuccess, Consumer<Exception> onFailure) {
+        if (index >= toClear.size()) {
+            onSuccess.run();
+            return;
+        }
+
+        Upgrade upgrade = toClear.get(index);
+        Location clearPoint = islandOrigin.clone().add(upgrade.getOffsetX(), upgrade.getOffsetY(), upgrade.getOffsetZ());
+        schematicManager.clearAsync(upgrade.getSchematic(), clearPoint,
+                () -> clearAll(islandOrigin, toClear, index + 1, onSuccess, onFailure),
+                onFailure);
+    }
+
+    // A (0,0,0) offset is what the base house is always pasted at, and the config convention is that tiers
+    // replacing the same structure share that offset too — so this is true only for upgrades sitting
+    // directly on top of the base house's own footprint, not for standalone structures like a farm.
+    private boolean sharesBaseFootprint(Upgrade upgrade) {
+        return upgrade.getOffsetX() == 0 && upgrade.getOffsetY() == 0 && upgrade.getOffsetZ() == 0;
     }
 }

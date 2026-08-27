@@ -11,7 +11,10 @@ import com.sk89q.worldedit.extent.clipboard.io.ClipboardReader;
 import com.sk89q.worldedit.function.operation.Operation;
 import com.sk89q.worldedit.function.operation.Operations;
 import com.sk89q.worldedit.math.BlockVector3;
+import com.sk89q.worldedit.regions.CuboidRegion;
+import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.session.ClipboardHolder;
+import com.sk89q.worldedit.world.block.BlockTypes;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
@@ -76,6 +79,35 @@ public class SchematicManager {
         });
     }
 
+    // Clears the footprint fileName's clipboard would occupy if pasted at origin (sets it to air),
+    // without pasting anything back.
+    public void clearAsync(String fileName, Location origin, Runnable onSuccess, Consumer<Exception> onFailure) {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                clear(fileName, origin);
+                Bukkit.getScheduler().runTask(plugin, onSuccess);
+            } catch (Exception exception) {
+                Bukkit.getScheduler().runTask(plugin, () -> onFailure.accept(exception));
+            }
+        });
+    }
+
+    // Clears the footprint clearFileName would occupy if pasted at clearOrigin, then pastes pasteFileName
+    // at pasteOrigin. Used when replacing a structure with a smaller one (e.g. reverting an upgrade) so
+    // blocks outside the new footprint don't linger behind.
+    public void replaceAsync(String clearFileName, Location clearOrigin, String pasteFileName, Location pasteOrigin,
+                              Runnable onSuccess, Consumer<Exception> onFailure) {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                clear(clearFileName, clearOrigin);
+                paste(pasteFileName, pasteOrigin);
+                Bukkit.getScheduler().runTask(plugin, onSuccess);
+            } catch (Exception exception) {
+                Bukkit.getScheduler().runTask(plugin, () -> onFailure.accept(exception));
+            }
+        });
+    }
+
     private void paste(String fileName, Location origin) throws Exception {
         Clipboard clipboard = loadClipboard(fileName);
         com.sk89q.worldedit.world.World weWorld = BukkitAdapter.adapt(origin.getWorld());
@@ -88,6 +120,24 @@ public class SchematicManager {
                     .ignoreAirBlocks(false)
                     .build();
             Operations.complete(operation);
+        }
+    }
+
+    // Sets every block fileName's clipboard would cover if pasted at origin back to air.
+    private void clear(String fileName, Location origin) throws Exception {
+        Clipboard clipboard = loadClipboard(fileName);
+        com.sk89q.worldedit.world.World weWorld = BukkitAdapter.adapt(origin.getWorld());
+        BlockVector3 pastePoint = BlockVector3.at(origin.getBlockX(), origin.getBlockY(), origin.getBlockZ());
+
+        // Shift the clipboard's own region by the same offset createPaste().to(pastePoint) would apply,
+        // so we clear exactly the footprint the paste would have covered.
+        BlockVector3 shift = pastePoint.subtract(clipboard.getOrigin());
+        BlockVector3 min = clipboard.getRegion().getMinimumPoint().add(shift);
+        BlockVector3 max = clipboard.getRegion().getMaximumPoint().add(shift);
+        Region region = new CuboidRegion(weWorld, min, max);
+
+        try (EditSession editSession = WorldEdit.getInstance().newEditSessionBuilder().world(weWorld).build()) {
+            editSession.setBlocks(region, BlockTypes.AIR.getDefaultState());
         }
     }
 }
