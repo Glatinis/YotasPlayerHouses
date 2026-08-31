@@ -25,6 +25,10 @@ public class ConfigManager {
         return config.getString("houseworld-name");
     }
 
+    public boolean isFastAsyncEnabled() {
+        return config.getBoolean("fastasync", false);
+    }
+
     // Island grid
 
     public int getIslandSpacing() {

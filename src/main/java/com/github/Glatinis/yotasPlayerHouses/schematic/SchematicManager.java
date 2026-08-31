@@ -1,5 +1,6 @@
 package com.github.Glatinis.yotasPlayerHouses.schematic;
 
+import com.github.Glatinis.yotasPlayerHouses.core.ConfigManager;
 import com.github.Glatinis.yotasPlayerHouses.core.YotasPlayerHouses;
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.WorldEdit;
@@ -26,11 +27,13 @@ import java.util.function.Consumer;
 
 public class SchematicManager {
     private final YotasPlayerHouses plugin;
+    private final ConfigManager configManager;
     private final File schematicsFolder;
     private final Map<String, Clipboard> clipboardCache = new ConcurrentHashMap<>();
 
-    public SchematicManager(YotasPlayerHouses plugin) {
+    public SchematicManager(YotasPlayerHouses plugin, ConfigManager configManager) {
         this.plugin = plugin;
+        this.configManager = configManager;
         this.schematicsFolder = new File(plugin.getDataFolder(), "schematics");
 
         if (!schematicsFolder.exists() && !schematicsFolder.mkdirs()) {
@@ -67,45 +70,57 @@ public class SchematicManager {
         }
     }
 
-    // Pastes off the main thread, then hands the result back on the main thread.
+    // Pastes fileName's schematic at origin. See runEdit for the FAWE/regular WorldEdit threading note.
     public void pasteAsync(String fileName, Location origin, Runnable onSuccess, Consumer<Exception> onFailure) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            try {
-                paste(fileName, origin);
-                Bukkit.getScheduler().runTask(plugin, onSuccess);
-            } catch (Exception exception) {
-                Bukkit.getScheduler().runTask(plugin, () -> onFailure.accept(exception));
-            }
-        });
+        runEdit(() -> paste(fileName, origin), onSuccess, onFailure);
     }
 
     // Clears the footprint fileName's clipboard would occupy if pasted at origin (sets it to air),
-    // without pasting anything back.
+    // without pasting anything back. See runEdit for the FAWE/regular WorldEdit threading note.
     public void clearAsync(String fileName, Location origin, Runnable onSuccess, Consumer<Exception> onFailure) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            try {
-                clear(fileName, origin);
-                Bukkit.getScheduler().runTask(plugin, onSuccess);
-            } catch (Exception exception) {
-                Bukkit.getScheduler().runTask(plugin, () -> onFailure.accept(exception));
-            }
-        });
+        runEdit(() -> clear(fileName, origin), onSuccess, onFailure);
     }
 
     // Clears the footprint clearFileName would occupy if pasted at clearOrigin, then pastes pasteFileName
     // at pasteOrigin. Used when replacing a structure with a smaller one (e.g. reverting an upgrade) so
-    // blocks outside the new footprint don't linger behind.
+    // blocks outside the new footprint don't linger behind. See runEdit for the threading note.
     public void replaceAsync(String clearFileName, Location clearOrigin, String pasteFileName, Location pasteOrigin,
                               Runnable onSuccess, Consumer<Exception> onFailure) {
+        runEdit(() -> {
+            clear(clearFileName, clearOrigin);
+            paste(pasteFileName, pasteOrigin);
+        }, onSuccess, onFailure);
+    }
+
+    // FAWE is built to edit safely off the main thread, so with it enabled the edit runs on a worker
+    // thread and the callback is handed back to the main thread. Regular WorldEdit applies block updates
+    // directly against the world (via NMS) and Bukkit's AsyncCatcher rejects that off the main thread, so
+    // without FAWE the edit and its callback both run synchronously on the calling thread instead - every
+    // caller of this class already runs on the main thread (commands, listeners), so that's safe.
+    private void runEdit(ThrowingRunnable edit, Runnable onSuccess, Consumer<Exception> onFailure) {
+        if (!configManager.isFastAsyncEnabled()) {
+            try {
+                edit.run();
+                onSuccess.run();
+            } catch (Exception exception) {
+                onFailure.accept(exception);
+            }
+            return;
+        }
+
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                clear(clearFileName, clearOrigin);
-                paste(pasteFileName, pasteOrigin);
+                edit.run();
                 Bukkit.getScheduler().runTask(plugin, onSuccess);
             } catch (Exception exception) {
                 Bukkit.getScheduler().runTask(plugin, () -> onFailure.accept(exception));
             }
         });
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
     }
 
     private void paste(String fileName, Location origin) throws Exception {

@@ -32,15 +32,16 @@ public final class YotasPlayerHouses extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        if (!checkDependency("Multiverse-Core") || !checkDependency("FastAsyncWorldEdit") || !checkDependency("Vault"))
+        saveDefaultConfig();
+        configManager = new ConfigManager(this);
+
+        String worldEditPlugin = configManager.isFastAsyncEnabled() ? "FastAsyncWorldEdit" : "WorldEdit";
+        if (!checkDependency("Multiverse-Core") || !checkDependency(worldEditPlugin) || !checkDependency("Vault"))
             return;
 
-        saveDefaultConfig();
-
-        configManager = new ConfigManager(this);
         playerDataManager = new PlayerDataManager(this);
         economyManager = new EconomyManager(this);
-        schematicManager = new SchematicManager(this);
+        schematicManager = new SchematicManager(this, configManager);
         houseWorldManager = new HouseWorldManager(this, configManager);
         islandManager = new IslandManager(this, configManager, playerDataManager, schematicManager);
         upgradeManager = new UpgradeManager(this, configManager, economyManager, schematicManager, playerDataManager, islandManager);

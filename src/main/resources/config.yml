@@ -1,6 +1,11 @@
 # The world houses are generated in.
 houseworld-name: houses
 
+# Which WorldEdit implementation upgrade schematics are pasted with.
+# true  -> requires FastAsyncWorldEdit
+# false -> requires regular WorldEdit
+fastasync: false
+
 # Grid layout for island plots inside the house world.
 island:
   # Distance in blocks between each island's origin.

@@ -5,7 +5,7 @@ version: '${version}'
 main: com.github.Glatinis.yotasPlayerHouses.core.YotasPlayerHouses
 api-version: '1.21.11'
 load: POSTWORLD
-softdepend: [ Multiverse-Core, FastAsyncWorldEdit, Vault ]
+softdepend: [ Multiverse-Core, WorldEdit, FastAsyncWorldEdit, Vault ]
 
 authors: [ Glatinis ]
 

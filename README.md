@@ -1,13 +1,14 @@
 # YotasPlayerHouses
 
 Player owned, upgradable houses on individual islands in a dedicated Multiverse-Core world.
-Upgrades are schematics pasted with FastAsyncWorldEdit and paid for with Vault money and/or items,
-all defined in `config.yml` so new upgrades can be added without touching code.
+Upgrades are schematics pasted with WorldEdit (or FastAsyncWorldEdit) and paid for with Vault money
+and/or items, all defined in `config.yml` so new upgrades can be added without touching code.
 
 ## Requirements
 
 - Multiverse-Core
-- FastAsyncWorldEdit
+- WorldEdit, or FastAsyncWorldEdit if `fastasync: true` is set in `config.yml` (default: `false`,
+  regular WorldEdit)
 - Vault (with an economy plugin hooked in)
 
 The plugin disables itself on startup if any of these are missing.
