@@ -79,7 +79,12 @@ public class PlayerDataManager {
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
         int islandIndex = yaml.getInt("island-index", PlayerHouseData.NO_ISLAND);
         HashSet<String> ownedUpgrades = new HashSet<>(yaml.getStringList("owned-upgrades"));
-        return new PlayerHouseData(uuid, islandIndex, ownedUpgrades);
+
+        // Missing on files written before origin-pinning; IslandManager backfills it on next lookup.
+        double originX = yaml.getDouble("origin-x", PlayerHouseData.NO_ORIGIN);
+        double originY = yaml.getDouble("origin-y", PlayerHouseData.NO_ORIGIN);
+        double originZ = yaml.getDouble("origin-z", PlayerHouseData.NO_ORIGIN);
+        return new PlayerHouseData(uuid, islandIndex, ownedUpgrades, originX, originY, originZ);
     }
 
     public void save(PlayerHouseData data) {
@@ -87,6 +92,11 @@ public class PlayerDataManager {
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("island-index", data.getIslandIndex());
         yaml.set("owned-upgrades", new ArrayList<>(data.getOwnedUpgrades()));
+        if (data.hasOrigin()) {
+            yaml.set("origin-x", data.getOriginX());
+            yaml.set("origin-y", data.getOriginY());
+            yaml.set("origin-z", data.getOriginZ());
+        }
         try {
             yaml.save(file);
         } catch (IOException exception) {

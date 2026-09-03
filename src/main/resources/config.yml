@@ -7,6 +7,7 @@ houseworld-name: houses
 fastasync: false
 
 # Grid layout for island plots inside the house world.
+# NOTE: only affects where NEW islands are placed - existing houses are pinned in place and unaffected.
 island:
   # Distance in blocks between each island's origin.
   spacing: 500

@@ -6,6 +6,7 @@ import com.github.Glatinis.yotasPlayerHouses.upgrade.Upgrade;
 import com.github.Glatinis.yotasPlayerHouses.upgrade.UpgradeManager;
 import com.github.Glatinis.yotasPlayerHouses.world.IslandManager;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -62,6 +63,7 @@ public class AdminSubCommand implements SubCommand {
             case "add" -> handleAdd(sender, args, target);
             case "remove" -> handleRemove(sender, args, target);
             case "reset" -> handleReset(sender, target);
+            case "relocate" -> handleRelocate(sender, target);
             default -> sendUsage(sender);
         }
     }
@@ -97,6 +99,22 @@ public class AdminSubCommand implements SubCommand {
                 exception -> sender.sendMessage("§cFailed to reset house: " + exception.getMessage()));
     }
 
+    // Re-pins a player's house to wherever the admin is standing. No re-paste, no clearing - just updates
+    // the stored coordinates.
+    private void handleRelocate(CommandSender sender, OfflinePlayer target) {
+        if (!(sender instanceof Player admin)) {
+            sender.sendMessage("§cOnly a player can run this - stand where the house actually is first.");
+            return;
+        }
+        // teleportHome/respawn add +1 to the origin's Y for a safe standing spot; undo that here.
+        Location origin = admin.getLocation().add(0.0, -1.0, 0.0);
+        if (!islandManager.relocateOrigin(target.getUniqueId(), origin)) {
+            sender.sendMessage("§c" + target.getName() + " does not have a house yet.");
+            return;
+        }
+        sender.sendMessage("§a" + target.getName() + "'s house has been re-pinned to where you're standing.");
+    }
+
     private String adminMessage(AdminActionResult result) {
         return switch (result) {
             case SUCCESS -> "§aDone.";
@@ -114,13 +132,14 @@ public class AdminSubCommand implements SubCommand {
         sender.sendMessage("§6/playerhouse admin add <player> <upgrade>");
         sender.sendMessage("§6/playerhouse admin remove <player> <upgrade>");
         sender.sendMessage("§6/playerhouse admin reset <player>");
+        sender.sendMessage("§6/playerhouse admin relocate <player> §f- pin their house to where you're standing");
         sender.sendMessage("§6/playerhouse admin reload");
     }
 
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {
         if (args.length == 1)
-            return List.of("list", "add", "remove", "reset", "reload").stream()
+            return List.of("list", "add", "remove", "reset", "relocate", "reload").stream()
                     .filter(action -> action.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
 

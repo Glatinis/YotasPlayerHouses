@@ -70,7 +70,11 @@ crashing the plugin.
 | `/playerhouse admin add <player> <upgrade>` | Grant an upgrade for free |
 | `/playerhouse admin remove <player> <upgrade>` | Revoke an upgrade |
 | `/playerhouse admin reset <player>` | Wipe a player's progress back to the base house |
+| `/playerhouse admin relocate <player>` | Re-pin a player's house to your current location (no blocks touched) |
 | `/playerhouse admin reload` | Reload config.yml and upgrades |
+
+Island locations are pinned in place once built, so changing `island.spacing`/`row-length`/`y-level`
+only affects new islands. Use `admin relocate` to fix a house that was mispinned before this existed.
 
 ## Permissions
 

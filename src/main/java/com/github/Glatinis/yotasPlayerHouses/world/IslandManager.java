@@ -33,7 +33,9 @@ public class IslandManager {
 
     // Grid placement
 
-    public Location getIslandOrigin(int islandIndex) {
+    // Where index N sits under the currently configured spacing/row-length/y-level. Only for handing out
+    // a fresh spot or migrating a legacy pin - an existing house's real location is getIslandOrigin(uuid).
+    private Location computeGridOrigin(int islandIndex) {
         World houseWorld = Bukkit.getWorld(configManager.getHouseWorldName());
         int rowLength = configManager.getIslandRowLength();
         int spacing = configManager.getIslandSpacing();
@@ -55,7 +57,20 @@ public class IslandManager {
         PlayerHouseData data = playerDataManager.get(uuid);
         if (!data.hasIsland())
             return null;
-        return getIslandOrigin(data.getIslandIndex());
+
+        if (!data.hasOrigin())
+            migrateOrigin(data);
+
+        World houseWorld = Bukkit.getWorld(configManager.getHouseWorldName());
+        return new Location(houseWorld, data.getOriginX(), data.getOriginY(), data.getOriginZ());
+    }
+
+    // Backfills the origin for player data saved before pinning existed, using the current config as a
+    // best guess. If that guess is wrong, /playerhouse admin relocate fixes it.
+    private void migrateOrigin(PlayerHouseData data) {
+        Location origin = computeGridOrigin(data.getIslandIndex());
+        data.setOrigin(origin.getX(), origin.getY(), origin.getZ());
+        playerDataManager.save(data);
     }
 
     // Creation
@@ -64,21 +79,33 @@ public class IslandManager {
         PlayerHouseData data = playerDataManager.get(player.getUniqueId());
 
         if (data.hasIsland()) {
-            onReady.accept(getIslandOrigin(data.getIslandIndex()));
+            onReady.accept(getIslandOrigin(data.getUniqueId()));
             return;
         }
 
         int index = playerDataManager.allocateIslandIndex();
-        Location origin = getIslandOrigin(index);
+        Location origin = computeGridOrigin(index);
 
         schematicManager.pasteAsync(configManager.getBaseSchematic(), origin, () -> {
             data.setIslandIndex(index);
+            data.setOrigin(origin.getX(), origin.getY(), origin.getZ());
             playerDataManager.save(data);
             onReady.accept(origin);
         }, exception -> {
             plugin.getLogger().warning("Failed to paste base schematic for " + player.getName() + ": " + exception.getMessage());
             player.sendMessage("§cFailed to create your house, please contact an admin.");
         });
+    }
+
+    // Re-pins an existing player's origin without touching any blocks.
+    public boolean relocateOrigin(UUID targetUuid, Location newOrigin) {
+        PlayerHouseData data = playerDataManager.get(targetUuid);
+        if (!data.hasIsland())
+            return false;
+
+        data.setOrigin(newOrigin.getX(), newOrigin.getY(), newOrigin.getZ());
+        playerDataManager.save(data);
+        return true;
     }
 
     public void teleportHome(Player player) {
@@ -101,7 +128,7 @@ public class IslandManager {
             return;
         }
 
-        Location origin = getIslandOrigin(data.getIslandIndex());
+        Location origin = getIslandOrigin(targetUuid);
         List<String> ownedIds = new ArrayList<>(data.getOwnedUpgrades());
 
         clearOwnedUpgrades(origin, ownedIds, 0, upgradeManager, () ->
