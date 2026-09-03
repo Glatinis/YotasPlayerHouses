@@ -79,7 +79,7 @@ public class IslandManager {
         PlayerHouseData data = playerDataManager.get(player.getUniqueId());
 
         if (data.hasIsland()) {
-            onReady.accept(getIslandOrigin(data.getUniqueId()));
+            onReady.accept(getIslandOrigin(data.getUuid()));
             return;
         }
 
