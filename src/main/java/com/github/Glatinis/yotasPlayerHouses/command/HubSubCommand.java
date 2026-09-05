@@ -27,6 +27,10 @@ public class HubSubCommand implements SubCommand {
             sender.sendMessage("§cOnly players can use this command.");
             return;
         }
+        if (!configManager.isHubWorldLoaded()) {
+            player.sendMessage("§cThe hub isn't available right now, please contact an admin.");
+            return;
+        }
         player.teleport(configManager.getHubLocation());
     }
 }

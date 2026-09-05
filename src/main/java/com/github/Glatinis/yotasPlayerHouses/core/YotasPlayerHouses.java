@@ -42,6 +42,13 @@ public final class YotasPlayerHouses extends JavaPlugin {
         playerDataManager = new PlayerDataManager(this);
         economyManager = new EconomyManager(this);
         schematicManager = new SchematicManager(this, configManager);
+
+        String baseSchematic = configManager.getBaseSchematic();
+        if (!schematicManager.exists(baseSchematic)) {
+            getLogger().severe("Base schematic '" + baseSchematic + "' was not found in the schematics " +
+                    "folder. No player will be able to create a house until it is added.");
+        }
+
         houseWorldManager = new HouseWorldManager(this, configManager);
         islandManager = new IslandManager(this, configManager, playerDataManager, schematicManager);
         upgradeManager = new UpgradeManager(this, configManager, economyManager, schematicManager, playerDataManager, islandManager);
@@ -75,7 +82,7 @@ public final class YotasPlayerHouses extends JavaPlugin {
                 new UpgradeSubCommand(upgradeManager),
                 new InviteSubCommand(inviteManager),
                 new AcceptSubCommand(inviteManager),
-                new AdminSubCommand(configManager, upgradeManager, islandManager)
+                new AdminSubCommand(configManager, upgradeManager, islandManager, houseWorldManager)
         );
 
         PluginCommand playerHouseCommand = getCommand("playerhouse");

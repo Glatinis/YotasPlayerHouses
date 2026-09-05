@@ -189,6 +189,10 @@ public class UpgradeManager {
         }
 
         Location origin = islandManager.getIslandOrigin(player);
+        if (origin == null) {
+            callback.accept(PurchaseResult.HOUSE_WORLD_UNAVAILABLE);
+            return;
+        }
         Location pastePoint = origin.clone().add(upgrade.getOffsetX(), upgrade.getOffsetY(), upgrade.getOffsetZ());
 
         schematicManager.pasteAsync(upgrade.getSchematic(), pastePoint, () -> {
@@ -248,8 +252,12 @@ public class UpgradeManager {
             return;
         }
 
-        Location pastePoint = islandManager.getIslandOrigin(targetUuid)
-                .clone().add(upgrade.getOffsetX(), upgrade.getOffsetY(), upgrade.getOffsetZ());
+        Location origin = islandManager.getIslandOrigin(targetUuid);
+        if (origin == null) {
+            callback.accept(AdminActionResult.HOUSE_WORLD_UNAVAILABLE);
+            return;
+        }
+        Location pastePoint = origin.clone().add(upgrade.getOffsetX(), upgrade.getOffsetY(), upgrade.getOffsetZ());
 
         schematicManager.pasteAsync(upgrade.getSchematic(), pastePoint, () -> {
             data.addUpgrade(upgradeId);
@@ -273,6 +281,13 @@ public class UpgradeManager {
             return;
         }
 
+        // Checked before mutating data below, so a revoke can't be recorded without actually happening.
+        Location islandOrigin = islandManager.getIslandOrigin(targetUuid);
+        if (islandOrigin == null) {
+            callback.accept(AdminActionResult.HOUSE_WORLD_UNAVAILABLE);
+            return;
+        }
+
         // Anything currently owned that's built on top of this upgrade (directly or transitively) has to
         // be stripped too. Otherwise its structure keeps standing on a footprint we're about to clear out
         // from under it (e.g. clearing tier_1's floor while tier_2/VIP, which share its footprint, are
@@ -284,8 +299,6 @@ public class UpgradeManager {
         for (Upgrade stripped : toStrip)
             data.removeUpgrade(stripped.getId());
         playerDataManager.save(data);
-
-        Location islandOrigin = islandManager.getIslandOrigin(targetUuid);
 
         clearAll(islandOrigin, toStrip, 0, () -> pasteFallback(islandOrigin, data, upgrade, callback),
                 exception -> callback.accept(AdminActionResult.PASTE_FAILED));

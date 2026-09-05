@@ -5,6 +5,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -45,11 +48,7 @@ public class PlayerDataManager {
     private void saveState() {
         YamlConfiguration state = new YamlConfiguration();
         state.set("next-island-index", nextIslandIndex);
-        try {
-            state.save(stateFile);
-        } catch (IOException exception) {
-            plugin.getLogger().warning("Failed to save state.yml: " + exception.getMessage());
-        }
+        saveAtomically(state, stateFile);
     }
 
     public synchronized int allocateIslandIndex() {
@@ -97,10 +96,23 @@ public class PlayerDataManager {
             yaml.set("origin-y", data.getOriginY());
             yaml.set("origin-z", data.getOriginZ());
         }
+        saveAtomically(yaml, file);
+    }
+
+    // Writes to a temp file and swaps it in, so a crash mid-write can't corrupt the real file.
+    private void saveAtomically(YamlConfiguration yaml, File target) {
+        File tempFile = new File(target.getParentFile(), target.getName() + ".tmp");
         try {
-            yaml.save(file);
+            yaml.save(tempFile);
+            try {
+                Files.move(tempFile.toPath(), target.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException exception) {
+                Files.move(tempFile.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException exception) {
-            plugin.getLogger().warning("Failed to save player data for " + data.getUuid() + ": " + exception.getMessage());
+            plugin.getLogger().warning("Failed to save " + target.getName() + ": " + exception.getMessage());
+            tempFile.delete();
         }
     }
 }

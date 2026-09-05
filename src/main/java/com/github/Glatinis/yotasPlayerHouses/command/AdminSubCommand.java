@@ -4,6 +4,7 @@ import com.github.Glatinis.yotasPlayerHouses.core.ConfigManager;
 import com.github.Glatinis.yotasPlayerHouses.upgrade.AdminActionResult;
 import com.github.Glatinis.yotasPlayerHouses.upgrade.Upgrade;
 import com.github.Glatinis.yotasPlayerHouses.upgrade.UpgradeManager;
+import com.github.Glatinis.yotasPlayerHouses.world.HouseWorldManager;
 import com.github.Glatinis.yotasPlayerHouses.world.IslandManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -18,11 +19,14 @@ public class AdminSubCommand implements SubCommand {
     private final ConfigManager configManager;
     private final UpgradeManager upgradeManager;
     private final IslandManager islandManager;
+    private final HouseWorldManager houseWorldManager;
 
-    public AdminSubCommand(ConfigManager configManager, UpgradeManager upgradeManager, IslandManager islandManager) {
+    public AdminSubCommand(ConfigManager configManager, UpgradeManager upgradeManager, IslandManager islandManager,
+                            HouseWorldManager houseWorldManager) {
         this.configManager = configManager;
         this.upgradeManager = upgradeManager;
         this.islandManager = islandManager;
+        this.houseWorldManager = houseWorldManager;
     }
 
     @Override
@@ -48,6 +52,11 @@ public class AdminSubCommand implements SubCommand {
             configManager.reload();
             upgradeManager.load();
             sender.sendMessage("§aConfiguration reloaded.");
+            return;
+        }
+
+        if (action.equals("fixworld")) {
+            handleFixWorld(sender, args);
             return;
         }
 
@@ -115,6 +124,26 @@ public class AdminSubCommand implements SubCommand {
         sender.sendMessage("§a" + target.getName() + "'s house has been re-pinned to where you're standing.");
     }
 
+    // Recreating only happens once the admin re-runs this with "confirm".
+    private void handleFixWorld(CommandSender sender, String[] args) {
+        boolean confirmed = args.length >= 2 && args[1].equalsIgnoreCase("confirm");
+
+        switch (houseWorldManager.attemptFix(confirmed)) {
+            case ALREADY_LOADED -> sender.sendMessage("§aThe house world is already loaded, nothing to fix.");
+            case RECOVERED_BY_RELOAD -> sender.sendMessage("§aThe house world was reloaded successfully.");
+            case NEEDS_RECREATE_CONFIRMATION -> sender.sendMessage(
+                    "§cA reload wasn't enough - the world folder itself appears broken. Run " +
+                            "§f/playerhouse admin fixworld confirm§c to move the broken folder aside and " +
+                            "generate a fresh one. Existing houses will need to be rebuilt afterwards " +
+                            "(§f/playerhouse admin reset <player>§c re-pastes their base house at its old spot).");
+            case RECREATED -> sender.sendMessage(
+                    "§aThe house world has been recreated. The old folder was kept, moved aside, in case " +
+                            "anything needed to be recovered from it. Existing players will need " +
+                            "§f/playerhouse admin reset <player>§a to get a fresh house at their old spot.");
+            case FAILED -> sender.sendMessage("§cCould not fix the house world, check the server console for why.");
+        }
+    }
+
     private String adminMessage(AdminActionResult result) {
         return switch (result) {
             case SUCCESS -> "§aDone.";
@@ -123,6 +152,7 @@ public class AdminSubCommand implements SubCommand {
             case ALREADY_OWNED -> "§cThat player already owns this upgrade.";
             case NOT_OWNED -> "§cThat player does not own this upgrade.";
             case SCHEMATIC_MISSING -> "§cThis upgrade is misconfigured, please check its schematic file.";
+            case HOUSE_WORLD_UNAVAILABLE -> "§cThe house world isn't loaded right now.";
             case PASTE_FAILED -> "§cSomething went wrong pasting the schematic.";
         };
     }
@@ -134,14 +164,18 @@ public class AdminSubCommand implements SubCommand {
         sender.sendMessage("§6/playerhouse admin reset <player>");
         sender.sendMessage("§6/playerhouse admin relocate <player> §f- pin their house to where you're standing");
         sender.sendMessage("§6/playerhouse admin reload");
+        sender.sendMessage("§6/playerhouse admin fixworld §f- repair or recreate the house world if it's broken");
     }
 
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {
         if (args.length == 1)
-            return List.of("list", "add", "remove", "reset", "relocate", "reload").stream()
+            return List.of("list", "add", "remove", "reset", "relocate", "reload", "fixworld").stream()
                     .filter(action -> action.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("fixworld"))
+            return "confirm".startsWith(args[1].toLowerCase()) ? List.of("confirm") : List.of();
 
         if (args.length == 2 && !args[0].equalsIgnoreCase("reload"))
             return Bukkit.getOnlinePlayers().stream()

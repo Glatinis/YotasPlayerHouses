@@ -33,6 +33,7 @@ public class AcceptSubCommand implements SubCommand {
             case NO_PENDING_INVITE -> player.sendMessage("§cYou do not have a pending invite.");
             case EXPIRED -> player.sendMessage("§cThat invite has expired.");
             case OWNER_OFFLINE -> player.sendMessage("§cThe player who invited you is no longer online.");
+            case HOUSE_UNAVAILABLE -> player.sendMessage("§cThat house isn't available right now, please contact an admin.");
         }
     }
 }

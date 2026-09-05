@@ -47,6 +47,7 @@ public class UpgradeSubCommand implements SubCommand {
             case INSUFFICIENT_FUNDS -> "§cYou do not have enough money for this upgrade.";
             case INSUFFICIENT_ITEMS -> "§cYou do not have the required items for this upgrade.";
             case SCHEMATIC_MISSING -> "§cThis upgrade is misconfigured, please contact an admin.";
+            case HOUSE_WORLD_UNAVAILABLE -> "§cThe house world isn't available right now, please contact an admin.";
             case PASTE_FAILED -> "§cSomething went wrong applying this upgrade, please contact an admin.";
         }));
     }

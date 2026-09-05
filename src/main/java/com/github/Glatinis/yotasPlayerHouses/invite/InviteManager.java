@@ -66,9 +66,11 @@ public class InviteManager {
         if (owner == null || !owner.isOnline())
             return AcceptResult.OWNER_OFFLINE;
 
-        pendingInvites.remove(target.getUniqueId());
-
         Location origin = islandManager.getIslandOrigin(owner);
+        if (origin == null)
+            return AcceptResult.HOUSE_UNAVAILABLE;
+
+        pendingInvites.remove(target.getUniqueId());
         target.teleport(origin.clone().add(0.0, 1.0, 0.0));
         return AcceptResult.SUCCESS;
     }

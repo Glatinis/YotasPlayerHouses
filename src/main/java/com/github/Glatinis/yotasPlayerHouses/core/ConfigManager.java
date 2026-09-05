@@ -22,7 +22,7 @@ public class ConfigManager {
     // World
 
     public String getHouseWorldName() {
-        return config.getString("houseworld-name");
+        return config.getString("houseworld-name", "houses");
     }
 
     public boolean isFastAsyncEnabled() {
@@ -31,12 +31,13 @@ public class ConfigManager {
 
     // Island grid
 
+    // Clamped to at least 1 to avoid a divide/modulo-by-zero on a misconfigured value.
     public int getIslandSpacing() {
-        return config.getInt("island.spacing", 500);
+        return Math.max(1, config.getInt("island.spacing", 500));
     }
 
     public int getIslandRowLength() {
-        return config.getInt("island.row-length", 50);
+        return Math.max(1, config.getInt("island.row-length", 50));
     }
 
     public int getIslandYLevel() {
@@ -52,6 +53,11 @@ public class ConfigManager {
     }
 
     // Hub
+
+    // Check before teleporting to getHubLocation() - the hub world may not be loaded.
+    public boolean isHubWorldLoaded() {
+        return Bukkit.getWorld(config.getString("hub.world", "world")) != null;
+    }
 
     public Location getHubLocation() {
         String worldName = config.getString("hub.world", "world");

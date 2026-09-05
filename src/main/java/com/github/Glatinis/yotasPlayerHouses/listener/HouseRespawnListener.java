@@ -27,8 +27,14 @@ public class HouseRespawnListener implements Listener {
             return;
 
         Location origin = islandManager.getIslandOrigin(player);
-        Location respawnLocation = origin != null ? safeSpotAbove(origin, player) : configManager.getHubLocation();
-        event.setRespawnLocation(respawnLocation);
+        if (origin != null) {
+            event.setRespawnLocation(safeSpotAbove(origin, player));
+            return;
+        }
+
+        // Fall back to the hub, unless its world isn't loaded either.
+        if (configManager.isHubWorldLoaded())
+            event.setRespawnLocation(configManager.getHubLocation());
     }
 
     private Location safeSpotAbove(Location origin, Player player) {

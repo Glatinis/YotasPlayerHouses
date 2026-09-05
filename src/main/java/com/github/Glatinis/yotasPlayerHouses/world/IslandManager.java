@@ -33,10 +33,18 @@ public class IslandManager {
 
     // Grid placement
 
+    // Checked live (not cached) - null means the house world isn't loaded right now.
+    private World resolveHouseWorld() {
+        return Bukkit.getWorld(configManager.getHouseWorldName());
+    }
+
+    public boolean isHouseWorldReady() {
+        return resolveHouseWorld() != null;
+    }
+
     // Where index N sits under the currently configured spacing/row-length/y-level. Only for handing out
     // a fresh spot or migrating a legacy pin - an existing house's real location is getIslandOrigin(uuid).
-    private Location computeGridOrigin(int islandIndex) {
-        World houseWorld = Bukkit.getWorld(configManager.getHouseWorldName());
+    private Location computeGridOrigin(int islandIndex, World houseWorld) {
         int rowLength = configManager.getIslandRowLength();
         int spacing = configManager.getIslandSpacing();
 
@@ -53,22 +61,33 @@ public class IslandManager {
         return getIslandOrigin(player.getUniqueId());
     }
 
+    // Null when the player has no island, or when they do but the house world isn't loaded right now.
     public Location getIslandOrigin(UUID uuid) {
         PlayerHouseData data = playerDataManager.get(uuid);
         if (!data.hasIsland())
             return null;
 
-        if (!data.hasOrigin())
-            migrateOrigin(data);
+        World houseWorld = resolveHouseWorld();
 
-        World houseWorld = Bukkit.getWorld(configManager.getHouseWorldName());
+        if (!data.hasOrigin()) {
+            if (houseWorld == null)
+                return null;
+            migrateOrigin(data, houseWorld);
+        }
+
+        if (houseWorld == null) {
+            plugin.getLogger().warning("Can't resolve " + uuid + "'s house location: world '"
+                    + configManager.getHouseWorldName() + "' is not loaded.");
+            return null;
+        }
+
         return new Location(houseWorld, data.getOriginX(), data.getOriginY(), data.getOriginZ());
     }
 
     // Backfills the origin for player data saved before pinning existed, using the current config as a
     // best guess. If that guess is wrong, /playerhouse admin relocate fixes it.
-    private void migrateOrigin(PlayerHouseData data) {
-        Location origin = computeGridOrigin(data.getIslandIndex());
+    private void migrateOrigin(PlayerHouseData data, World houseWorld) {
+        Location origin = computeGridOrigin(data.getIslandIndex(), houseWorld);
         data.setOrigin(origin.getX(), origin.getY(), origin.getZ());
         playerDataManager.save(data);
     }
@@ -79,12 +98,24 @@ public class IslandManager {
         PlayerHouseData data = playerDataManager.get(player.getUniqueId());
 
         if (data.hasIsland()) {
-            onReady.accept(getIslandOrigin(data.getUuid()));
+            Location origin = getIslandOrigin(data.getUuid());
+            if (origin == null)
+                player.sendMessage("§cYour house world isn't available right now, please contact an admin.");
+            else
+                onReady.accept(origin);
+            return;
+        }
+
+        World houseWorld = resolveHouseWorld();
+        if (houseWorld == null) {
+            plugin.getLogger().severe("Can't create a house for " + player.getName() + ": world '"
+                    + configManager.getHouseWorldName() + "' is not loaded.");
+            player.sendMessage("§cHouses aren't available right now, please contact an admin.");
             return;
         }
 
         int index = playerDataManager.allocateIslandIndex();
-        Location origin = computeGridOrigin(index);
+        Location origin = computeGridOrigin(index, houseWorld);
 
         schematicManager.pasteAsync(configManager.getBaseSchematic(), origin, () -> {
             data.setIslandIndex(index);
@@ -129,6 +160,11 @@ public class IslandManager {
         }
 
         Location origin = getIslandOrigin(targetUuid);
+        if (origin == null) {
+            onFailure.accept(new IllegalStateException("house world '" + configManager.getHouseWorldName()
+                    + "' is not loaded"));
+            return;
+        }
         List<String> ownedIds = new ArrayList<>(data.getOwnedUpgrades());
 
         clearOwnedUpgrades(origin, ownedIds, 0, upgradeManager, () ->

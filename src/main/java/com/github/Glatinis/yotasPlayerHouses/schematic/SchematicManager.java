@@ -123,7 +123,15 @@ public class SchematicManager {
         void run() throws Exception;
     }
 
+    // Guards against a null-world Location reaching BukkitAdapter.adapt() as a bare NPE.
+    private void requireWorld(Location location) {
+        if (location.getWorld() == null)
+            throw new IllegalStateException("Target location has no loaded world - it may have unloaded " +
+                    "or failed to load.");
+    }
+
     private void paste(String fileName, Location origin) throws Exception {
+        requireWorld(origin);
         Clipboard clipboard = loadClipboard(fileName);
         com.sk89q.worldedit.world.World weWorld = BukkitAdapter.adapt(origin.getWorld());
         BlockVector3 pastePoint = BlockVector3.at(origin.getBlockX(), origin.getBlockY(), origin.getBlockZ());
@@ -140,6 +148,7 @@ public class SchematicManager {
 
     // Sets every block fileName's clipboard would cover if pasted at origin back to air.
     private void clear(String fileName, Location origin) throws Exception {
+        requireWorld(origin);
         Clipboard clipboard = loadClipboard(fileName);
         com.sk89q.worldedit.world.World weWorld = BukkitAdapter.adapt(origin.getWorld());
         BlockVector3 pastePoint = BlockVector3.at(origin.getBlockX(), origin.getBlockY(), origin.getBlockZ());

@@ -7,5 +7,6 @@ public enum AdminActionResult {
     ALREADY_OWNED,
     NOT_OWNED,
     SCHEMATIC_MISSING,
+    HOUSE_WORLD_UNAVAILABLE,
     PASTE_FAILED
 }

@@ -72,9 +72,15 @@ crashing the plugin.
 | `/playerhouse admin reset <player>` | Wipe a player's progress back to the base house |
 | `/playerhouse admin relocate <player>` | Re-pin a player's house to your current location (no blocks touched) |
 | `/playerhouse admin reload` | Reload config.yml and upgrades |
+| `/playerhouse admin fixworld [confirm]` | Repair the house world, or recreate it with `confirm` if broken |
 
 Island locations are pinned in place once built, so changing `island.spacing`/`row-length`/`y-level`
 only affects new islands. Use `admin relocate` to fix a house that was mispinned before this existed.
+
+`fixworld` first tries a plain reload (no data touched). If the world folder itself is broken, it
+reports that and does nothing further until run again as `admin fixworld confirm`, which moves the
+broken folder aside (kept on disk, not deleted) and generates a fresh world. Run `admin reset <player>`
+for each existing player afterwards to give them a base house again.
 
 ## Permissions
 

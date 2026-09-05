@@ -4,5 +4,6 @@ public enum AcceptResult {
     SUCCESS,
     NO_PENDING_INVITE,
     EXPIRED,
-    OWNER_OFFLINE
+    OWNER_OFFLINE,
+    HOUSE_UNAVAILABLE
 }
